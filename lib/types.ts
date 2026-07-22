@@ -62,3 +62,22 @@ export interface Attendee {
   name: string;
   photo_url: string | null;
 }
+
+export interface Result {
+  id: number;
+  session_id: number;
+  profile_id: string;
+  score_type: ScoreType;
+  value: number | null; // sortable; canonical display lives in value_text
+  value_text: string;
+  rx: boolean;
+  source: ResultSource;
+  verified: boolean;
+  created_at: string;
+}
+
+// A result joined to its member, for the session results feed.
+export interface ResultWithMember extends Result {
+  name: string;
+  photo_url: string | null;
+}

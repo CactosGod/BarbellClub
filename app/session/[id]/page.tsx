@@ -2,20 +2,27 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import SignupButton from "@/components/SignupButton";
+import ResultForm from "@/components/ResultForm";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { isStaff, type Attendee, type Session } from "@/lib/types";
 import {
+  isStaff,
+  type Attendee,
+  type Result,
+  type ResultWithMember,
+  type Session,
+} from "@/lib/types";
+import {
+  clubToday,
   decorateSession,
   formatDayLabel,
   formatReveal,
   formatTime,
 } from "@/lib/schedule";
 
-type SignupRow = {
-  profile_id: string;
-  profiles: { name: string; photo_url: string | null } | null;
-};
+type MemberJoin = { name: string; photo_url: string | null } | null;
+type SignupRow = { profile_id: string; profiles: MemberJoin };
+type ResultRow = Result & { profiles: MemberJoin };
 
 export default async function SessionPage({
   params,
@@ -52,11 +59,29 @@ export default async function SessionPage({
     photo_url: s.profiles?.photo_url ?? null,
   }));
 
+  const { data: resultRows } = await supabase
+    .from("results")
+    .select("*, profiles(name, photo_url)")
+    .eq("session_id", sessionId)
+    .order("value", { ascending: true, nullsFirst: false })
+    .order("created_at");
+  const results: ResultWithMember[] = (
+    (resultRows ?? []) as unknown as ResultRow[]
+  ).map((r) => ({
+    ...r,
+    name: r.profiles?.name ?? "Member",
+    photo_url: r.profiles?.photo_url ?? null,
+  }));
+  const myResult = results.find((r) => r.profile_id === me.id) ?? null;
+
   const s = decorateSession(session, {
     signupCount: attendees.length,
     isSignedUp: attendees.some((a) => a.profile_id === me.id),
     isStaff: isStaff(me.role),
   });
+
+  // Results are logged after training — offer the form only on today/past sessions.
+  const canLog = s.date <= clubToday();
 
   return (
     <>
@@ -122,13 +147,68 @@ export default async function SessionPage({
           )}
         </section>
 
-        <section className="mt-8 rounded-lg border border-dashed border-charcoal-700 p-4">
-          <p className="text-sm text-neutral-500">
-            Results and logging arrive in Phase 3.
-          </p>
+        <section className="mt-8">
+          {canLog ? (
+            <ResultForm sessionId={s.id} existing={myResult} />
+          ) : (
+            <div className="rounded-lg border border-dashed border-charcoal-700 p-4">
+              <p className="text-sm text-neutral-500">
+                Log opens after the session.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-8">
+          <h2 className="heading text-lg text-neutral-300">
+            Results ({results.length})
+          </h2>
+          {results.length === 0 ? (
+            <p className="mt-2 text-sm text-neutral-500">
+              No results logged yet.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {results.map((r) => (
+                <ResultRow key={r.id} r={r} isMe={r.profile_id === me.id} />
+              ))}
+            </ul>
+          )}
         </section>
       </main>
     </>
+  );
+}
+
+function ResultRow({ r, isMe }: { r: ResultWithMember; isMe: boolean }) {
+  return (
+    <li
+      className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${
+        isMe
+          ? "border-gold/40 bg-charcoal-800"
+          : "border-charcoal-700 bg-charcoal-800/50"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Avatar name={r.name} photo={r.photo_url} />
+        <div>
+          <p className="text-sm font-medium">{r.name}</p>
+          <div className="mt-0.5 flex items-center gap-2 text-xs">
+            <span
+              className={
+                r.rx ? "font-medium text-gold" : "text-neutral-400"
+              }
+            >
+              {r.rx ? "Rx" : "Scaled"}
+            </span>
+            {r.source !== "self" && (
+              <span className="text-neutral-500">· {r.source}</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <span className="font-mono text-sm text-neutral-100">{r.value_text}</span>
+    </li>
   );
 }
 

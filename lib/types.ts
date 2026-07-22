@@ -68,7 +68,8 @@ export interface Attendee {
 export interface Result {
   id: number;
   session_id: number;
-  profile_id: string;
+  profile_id: string | null; // null = unclaimed historical row (see board_name)
+  board_name: string | null; // name as written on the whiteboard (import)
   score_type: ScoreType;
   value: number | null; // sortable; canonical display lives in value_text
   value_text: string;
@@ -78,10 +79,12 @@ export interface Result {
   created_at: string;
 }
 
-// A result joined to its member, for the session results feed.
+// A result prepared for the session results feed. `name` resolves to the member's
+// name, or the board name for unclaimed rows; `claimed` is false for the latter.
 export interface ResultWithMember extends Result {
   name: string;
   photo_url: string | null;
+  claimed: boolean;
 }
 
 export interface Movement {

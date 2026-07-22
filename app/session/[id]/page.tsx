@@ -23,6 +23,7 @@ import {
   formatDayLabel,
   formatReveal,
   formatTime,
+  weekOffsetFor,
 } from "@/lib/schedule";
 
 type MemberJoin = { name: string; photo_url: string | null } | null;
@@ -31,14 +32,17 @@ type ResultRow = Result & { profiles: MemberJoin };
 
 export default async function SessionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ back?: string }>;
 }) {
   const me = await getCurrentProfile();
   if (!me) redirect("/login");
   if (me.status !== "active") redirect("/pending");
 
   const { id } = await params;
+  const { back } = await searchParams;
   const sessionId = Number(id);
   if (!Number.isInteger(sessionId)) notFound();
 
@@ -74,8 +78,9 @@ export default async function SessionPage({
     (resultRows ?? []) as unknown as ResultRow[]
   ).map((r) => ({
     ...r,
-    name: r.profiles?.name ?? "Member",
+    name: r.profiles?.name ?? r.board_name ?? "Member",
     photo_url: r.profiles?.photo_url ?? null,
+    claimed: r.profile_id != null,
   }));
   const myResult = results.find((r) => r.profile_id === me.id) ?? null;
 
@@ -87,6 +92,16 @@ export default async function SessionPage({
 
   // Results are logged after training — offer the form only on today/past sessions.
   const canLog = s.date <= clubToday();
+
+  // Return to where the user came from; only accept in-app relative paths. Fall
+  // back to the week the session sits in so a direct link doesn't dump them at today.
+  const safeBack = back && back.startsWith("/") && !back.startsWith("//");
+  const weekOffset = weekOffsetFor(s.date);
+  const backHref = safeBack
+    ? back
+    : weekOffset === 0
+      ? "/"
+      : `/?week=${weekOffset}`;
 
   // Staff-only whiteboard capture: show the pending review if one exists, else the
   // upload control. Uses the service-role client (staff-gated above).
@@ -126,7 +141,10 @@ export default async function SessionPage({
     <>
       <Header profile={me} />
       <main className="mx-auto max-w-3xl px-4 py-6">
-        <Link href="/" className="text-sm text-neutral-400 hover:text-white">
+        <Link
+          href={backHref}
+          className="text-sm text-neutral-400 hover:text-white"
+        >
           ← Schedule
         </Link>
 
@@ -238,7 +256,13 @@ function ResultRow({ r, isMe }: { r: ResultWithMember; isMe: boolean }) {
       <div className="flex items-center gap-3">
         <Avatar name={r.name} photo={r.photo_url} />
         <div>
-          <p className="text-sm font-medium">{r.name}</p>
+          <p
+            className={`text-sm font-medium ${
+              r.claimed ? "" : "italic text-neutral-400"
+            }`}
+          >
+            {r.name}
+          </p>
           <div className="mt-0.5 flex items-center gap-2 text-xs">
             <span
               className={

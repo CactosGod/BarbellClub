@@ -72,6 +72,30 @@ create table signups (
   primary key (session_id, profile_id)
 );
 
+-- Enforce session capacity atomically. Locking the session row serializes
+-- concurrent sign-ups for the same session, so the count can't be raced past
+-- the limit. capacity IS NULL means unlimited.
+create or replace function public.enforce_session_capacity()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  cap int;
+  taken int;
+begin
+  select capacity into cap from sessions where id = new.session_id for update;
+  if cap is null then
+    return new;
+  end if;
+  select count(*) into taken from signups where session_id = new.session_id;
+  if taken >= cap then
+    raise exception 'Session is full' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_enforce_capacity before insert on signups
+  for each row execute function public.enforce_session_capacity();
+
 create table results (
   id bigserial primary key,
   session_id bigint references sessions on delete cascade not null,

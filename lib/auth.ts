@@ -27,6 +27,9 @@ export async function ensureProfile(user: User): Promise<void> {
 
   const { name, photo_url } = profileFromUser(user);
   await admin.from("profiles").insert({ id: user.id, name, photo_url });
+
+  // Attach any historical (unclaimed) whiteboard results that match this name.
+  await admin.rpc("claim_results", { uid: user.id });
 }
 
 // Current authenticated user's profile, or null if signed out / no row yet.

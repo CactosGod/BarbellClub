@@ -102,7 +102,10 @@ create trigger trg_enforce_capacity before insert on signups
 create table results (
   id bigserial primary key,
   session_id bigint references sessions on delete cascade not null,
-  profile_id uuid references profiles not null,
+  -- Null profile_id = an "unclaimed" historical row identified by board_name; it
+  -- claims to a member (via claim_results) when they sign up. Otherwise set.
+  profile_id uuid references profiles,
+  board_name text,                -- name as written on the whiteboard (import)
   score_type score_type not null,
   value numeric,
   value_text text not null,       -- canonical display string
@@ -110,8 +113,41 @@ create table results (
   source result_source not null default 'self',
   verified boolean default false, -- true once coach-reviewed or self-logged
   created_at timestamptz default now(),
+  check (num_nonnulls(profile_id, board_name) >= 1),
   unique (session_id, profile_id)
 );
+
+-- Dedup unclaimed rows within a session (nulls are distinct, so the unique above
+-- doesn't cover them). Case-insensitive on the board name.
+create unique index results_unclaimed_uk
+  on results (session_id, lower(board_name))
+  where profile_id is null;
+
+-- Attach any unclaimed historical results to a member whose name (or first name)
+-- matches the board name, skipping sessions where they already have a result.
+-- SECURITY DEFINER so it can run from the signup path.
+create or replace function public.claim_results(uid uuid)
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  pname text;
+  fname text;
+  n integer;
+begin
+  select name, lower(split_part(name, ' ', 1)) into pname, fname
+  from profiles where id = uid;
+  if pname is null then return 0; end if;
+
+  update results r set profile_id = uid
+  where r.profile_id is null
+    and lower(r.board_name) in (lower(pname), fname)
+    and not exists (
+      select 1 from results r2
+      where r2.session_id = r.session_id and r2.profile_id = uid
+    );
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
 
 create table whiteboard_uploads (
   id bigserial primary key,

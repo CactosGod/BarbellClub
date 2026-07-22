@@ -51,6 +51,17 @@ function mondayOf(ymd: string): Date {
   return d;
 }
 
+// Week offset (0 = this week, -1 = last week, …) of the week containing `ymd`.
+// Lets a session link back to the week view it belongs to.
+export function weekOffsetFor(ymd: string, now: Date = new Date()): number {
+  const current = mondayOf(clubToday(now));
+  const target = mondayOf(ymd);
+  const days = Math.round(
+    (target.getTime() - current.getTime()) / 86_400_000,
+  );
+  return Math.round(days / 7);
+}
+
 // The 7 dates (Monday…Sunday) for the week `offset` weeks from the current club
 // week. offset 0 = this week, -1 = last week, +1 = next week.
 export function weekDates(offset: number, now: Date = new Date()): string[] {

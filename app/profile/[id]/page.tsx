@@ -10,9 +10,19 @@ import type {
   Movement,
   PersonalBest,
   Profile,
+  Result,
   ScoreType,
 } from "@/lib/types";
-import { setPb, togglePbVisibility, deletePb } from "./actions";
+import { formatDayLabel } from "@/lib/schedule";
+import {
+  setPb,
+  togglePbVisibility,
+  deletePb,
+  claimBoardName,
+  releaseResult,
+} from "./actions";
+
+type HistoryRow = Result & { sessions: { date: string; title: string } | null };
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
@@ -77,6 +87,40 @@ export default async function ProfilePage({
     else if (pb.benchmark_id != null) pbByBenchmark.set(pb.benchmark_id, pb);
   }
 
+  // Training history for this profile (newest first).
+  const { data: resultRows } = await supabase
+    .from("results")
+    .select("*, sessions(date, title)")
+    .eq("profile_id", id);
+  const history = ((resultRows ?? []) as unknown as HistoryRow[]).sort((a, b) =>
+    (b.sessions?.date ?? "").localeCompare(a.sessions?.date ?? ""),
+  );
+
+  // Own profile: unclaimed board names to claim, likely matches first.
+  let likelyNames: { name: string; count: number }[] = [];
+  let otherNames: { name: string; count: number }[] = [];
+  if (isOwner) {
+    const { data: unclaimed } = await supabase
+      .from("results")
+      .select("board_name")
+      .is("profile_id", null);
+    const counts = new Map<string, number>();
+    for (const r of unclaimed ?? []) {
+      const n = ((r as { board_name: string | null }).board_name ?? "").trim();
+      if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
+    }
+    const first = profile.name.split(" ")[0].toLowerCase();
+    const isLikely = (ln: string) =>
+      ln.includes(first) ||
+      first.includes(ln) ||
+      (ln.length >= 3 && ln.slice(0, 3) === first.slice(0, 3));
+    const all = [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+    likelyNames = all.filter((n) => isLikely(n.name.toLowerCase()));
+    otherNames = all.filter((n) => !isLikely(n.name.toLowerCase()));
+  }
+
   return (
     <>
       <Header profile={viewer} />
@@ -133,16 +177,113 @@ export default async function ProfilePage({
           isOwner={isOwner}
         />
 
-        <section className="mt-10 rounded-lg border border-dashed border-charcoal-700 p-4">
-          <p className="text-sm text-neutral-500">
-            Result history and progress charts arrive in a later update.{" "}
-            <Link href="/leaderboard" className="text-gold hover:underline">
-              See the club leaderboard →
-            </Link>
-          </p>
+        {isOwner && (likelyNames.length > 0 || otherNames.length > 0) && (
+          <section className="mt-10">
+            <h2 className="heading text-lg text-gold">Claim past results</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+              Whiteboards from before you joined. Tap a name you trained under to
+              add all its results to your history.
+            </p>
+            {likelyNames.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {likelyNames.map((n) => (
+                  <ClaimButton key={n.name} name={n.name} count={n.count} likely />
+                ))}
+              </div>
+            )}
+            {otherNames.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm text-neutral-400 hover:text-white">
+                  Show all names ({otherNames.length})
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {otherNames.map((n) => (
+                    <ClaimButton key={n.name} name={n.name} count={n.count} />
+                  ))}
+                </div>
+              </details>
+            )}
+          </section>
+        )}
+
+        <section className="mt-10">
+          <h2 className="heading text-lg text-neutral-300">
+            Training history ({history.length})
+          </h2>
+          {history.length === 0 ? (
+            <p className="mt-2 text-sm text-neutral-500">No results logged yet.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {history.map((r) => (
+                <HistoryRowItem key={r.id} r={r} isOwner={isOwner} />
+              ))}
+            </ul>
+          )}
         </section>
       </main>
     </>
+  );
+}
+
+function ClaimButton({
+  name,
+  count,
+  likely = false,
+}: {
+  name: string;
+  count: number;
+  likely?: boolean;
+}) {
+  return (
+    <form action={claimBoardName}>
+      <input type="hidden" name="board_name" value={name} />
+      <button
+        className={`rounded-full border px-3 py-1 text-sm ${
+          likely
+            ? "border-gold/40 bg-gold/10 text-gold hover:bg-gold/20"
+            : "border-charcoal-700 text-neutral-300 hover:border-gold hover:text-gold"
+        }`}
+      >
+        {name} <span className="text-xs opacity-70">· {count}</span>
+      </button>
+    </form>
+  );
+}
+
+function HistoryRowItem({ r, isOwner }: { r: HistoryRow; isOwner: boolean }) {
+  const canRelease = isOwner && r.source !== "self" && r.board_name != null;
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-700 bg-charcoal-800 p-3">
+      <div className="min-w-0">
+        <Link
+          href={`/session/${r.session_id}`}
+          className="text-sm font-medium hover:text-gold"
+        >
+          {r.sessions ? r.sessions.title : "Session"}
+        </Link>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          {r.sessions && <span>{formatDayLabel(r.sessions.date)}</span>}
+          <span className={r.rx ? "text-gold" : "text-neutral-400"}>
+            {r.rx ? "Rx" : "Scaled"}
+          </span>
+          {r.source !== "self" && <span>· {r.source}</span>}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-sm text-neutral-100">{r.value_text}</span>
+        {canRelease && (
+          <form action={releaseResult}>
+            <input type="hidden" name="result_id" value={r.id} />
+            <button
+              className="text-xs text-neutral-600 hover:text-red"
+              title="Release this result — not me"
+            >
+              not me
+            </button>
+          </form>
+        )}
+      </div>
+    </li>
   );
 }
 

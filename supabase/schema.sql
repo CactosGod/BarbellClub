@@ -107,11 +107,92 @@ insert into benchmarks (name, score_type) values
   ('Helen', 'time'), ('Diane', 'time'), ('DT', 'time'), ('Karen', 'time'),
   ('Cindy', 'rounds_reps');
 
--- RLS sketch (enable + policies; Claude Code: flesh out per table)
--- profiles: user reads all active; updates own row (except role/status);
---           coach/admin update role/status.
--- personal_bests: owner full access; others read only where visibility='club'.
--- sessions/signups: active members read; signups insert/delete own; coach CRUD sessions.
--- results: active members read; insert/update own (source='self');
---          coach upsert any (source='whiteboard').
--- whiteboard_uploads: coach/admin only.
+-- ============================================================================
+-- Row Level Security
+-- ============================================================================
+-- Helpers run SECURITY DEFINER so they can read profiles without tripping the
+-- table's own RLS (which would recurse). search_path pinned for safety.
+
+create or replace function public.is_active(uid uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from profiles where id = uid and status = 'active'
+  );
+$$;
+
+create or replace function public.is_staff(uid uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from profiles
+    where id = uid and status = 'active' and role in ('coach', 'admin')
+  );
+$$;
+
+-- profiles -------------------------------------------------------------------
+alter table profiles enable row level security;
+
+-- Any active member (or staff) may read the roster; everyone may read own row.
+create policy profiles_select on profiles for select to authenticated
+  using (id = auth.uid() or is_active(auth.uid()) or is_staff(auth.uid()));
+
+-- A member may edit only their own row. Column-level grants below prevent them
+-- from changing role/status; staff mutate those via the service-role client.
+create policy profiles_update_own on profiles for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
+
+revoke update on profiles from authenticated;
+grant update (name, photo_url) on profiles to authenticated;
+
+-- personal_bests -------------------------------------------------------------
+alter table personal_bests enable row level security;
+
+create policy pb_owner_all on personal_bests for all to authenticated
+  using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+create policy pb_read_club on personal_bests for select to authenticated
+  using (visibility = 'club' and is_active(auth.uid()));
+
+-- movements / benchmarks: public read-only catalogs ---------------------------
+alter table movements enable row level security;
+alter table benchmarks enable row level security;
+create policy movements_read on movements for select to authenticated using (true);
+create policy benchmarks_read on benchmarks for select to authenticated using (true);
+
+-- sessions / templates -------------------------------------------------------
+alter table sessions enable row level security;
+alter table session_templates enable row level security;
+
+create policy sessions_read on sessions for select to authenticated
+  using (is_active(auth.uid()));
+create policy sessions_staff_write on sessions for all to authenticated
+  using (is_staff(auth.uid())) with check (is_staff(auth.uid()));
+
+create policy templates_read on session_templates for select to authenticated
+  using (is_active(auth.uid()));
+create policy templates_staff_write on session_templates for all to authenticated
+  using (is_staff(auth.uid())) with check (is_staff(auth.uid()));
+
+-- signups --------------------------------------------------------------------
+alter table signups enable row level security;
+
+create policy signups_read on signups for select to authenticated
+  using (is_active(auth.uid()));
+create policy signups_own_write on signups for all to authenticated
+  using (profile_id = auth.uid() and is_active(auth.uid()))
+  with check (profile_id = auth.uid() and is_active(auth.uid()));
+
+-- results --------------------------------------------------------------------
+alter table results enable row level security;
+
+create policy results_read on results for select to authenticated
+  using (is_active(auth.uid()));
+-- Members log their own self-sourced results; staff (whiteboard/import) go
+-- through the service-role client, which bypasses RLS.
+create policy results_own_write on results for all to authenticated
+  using (profile_id = auth.uid() and source = 'self')
+  with check (profile_id = auth.uid() and source = 'self');
+
+-- whiteboard_uploads: staff only ---------------------------------------------
+alter table whiteboard_uploads enable row level security;
+create policy whiteboard_staff on whiteboard_uploads for all to authenticated
+  using (is_staff(auth.uid())) with check (is_staff(auth.uid()));

@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Club theme — see SPEC.md §Theme. Colors sampled from public/logo.png. */
+@theme {
+  --color-charcoal: #1a1a1a;
+  --color-charcoal-800: #232323;
+  --color-charcoal-700: #2e2e2e;
+  --color-red: #e31e24;
+  --color-orange: #f7941d;
+  --color-gold: #ffc20e;
+
+  --font-display: var(--font-anton), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-charcoal);
+  color: #f5f5f5;
+}
+
+/* Sunset gradient accent used for headings and highlights */
+.text-sunset {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-orange),
+    var(--color-gold)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.heading {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}

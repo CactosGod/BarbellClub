@@ -1,0 +1,17 @@
+{
+  "name": "Käpylä Maanantai Barbell Club",
+  "short_name": "KMBC",
+  "description": "Member portal for Käpylä Maanantai Barbell Club",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

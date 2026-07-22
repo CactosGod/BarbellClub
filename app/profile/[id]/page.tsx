@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Header from "@/components/Header";
 import EditableName from "@/components/EditableName";
+import AttendanceGauges from "@/components/AttendanceGauges";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import type {
@@ -13,7 +14,15 @@ import type {
   Result,
   ScoreType,
 } from "@/lib/types";
-import { formatDayLabel } from "@/lib/schedule";
+import { clubToday, formatDayLabel } from "@/lib/schedule";
+import {
+  attendancePercent,
+  firstAppearance,
+  firstWorkoutDate,
+  rolling12Start,
+  unionAttendance,
+  type AttendanceEvent,
+} from "@/lib/attendance";
 import {
   setPb,
   togglePbVisibility,
@@ -96,6 +105,73 @@ export default async function ProfilePage({
     (b.sessions?.date ?? "").localeCompare(a.sessions?.date ?? ""),
   );
 
+  // Attendance: result ∪ signup, member-relative denominators.
+  const today = clubToday();
+  const [
+    { data: attResultRows },
+    { data: attSignupRows },
+    { data: allSessionRows },
+  ] = await Promise.all([
+    supabase
+      .from("results")
+      .select("profile_id, session_id, sessions!inner(date)")
+      .eq("profile_id", id),
+    supabase
+      .from("signups")
+      .select("profile_id, session_id, sessions!inner(date)")
+      .eq("profile_id", id),
+    supabase
+      .from("sessions")
+      .select("id, date")
+      .lte("date", today)
+      .order("date"),
+  ]);
+
+  type JoinDate = { date: string };
+  type AttRow = {
+    profile_id: string;
+    session_id: number;
+    sessions: JoinDate | JoinDate[] | null;
+  };
+  const sessionDate = (s: AttRow["sessions"]): string | null => {
+    if (!s) return null;
+    return Array.isArray(s) ? (s[0]?.date ?? null) : s.date;
+  };
+  const mapAtt = (rows: AttRow[] | null): AttendanceEvent[] =>
+    (rows ?? [])
+      .map((r) => {
+        const date = sessionDate(r.sessions);
+        if (!date) return null;
+        return {
+          profile_id: r.profile_id,
+          session_id: r.session_id,
+          date,
+        };
+      })
+      .filter((x): x is AttendanceEvent => x != null);
+
+  const attEvents = unionAttendance(
+    mapAtt(attResultRows as AttRow[] | null),
+    mapAtt(attSignupRows as AttRow[] | null),
+  );
+  const sessions = (allSessionRows ?? []) as { id: number; date: string }[];
+  const appearance = firstAppearance(profile.joined_at, attEvents);
+  const firstWorkout = firstWorkoutDate(attEvents);
+  const lifetimeRate = attendancePercent(
+    attEvents,
+    sessions,
+    appearance,
+    appearance ?? "2000-01-01",
+    today,
+  );
+  const last12Rate = attendancePercent(
+    attEvents,
+    sessions,
+    appearance,
+    rolling12Start(today),
+    today,
+  );
+
   // Own profile: unclaimed board names to claim, likely matches first.
   let likelyNames: { name: string; count: number }[] = [];
   let otherNames: { name: string; count: number }[] = [];
@@ -148,10 +224,17 @@ export default async function ProfilePage({
             <div className="mt-2 flex flex-wrap gap-2">
               <Badge>{profile.role}</Badge>
               <Badge>{profile.status}</Badge>
-              {profile.joined_at && <Badge>joined {profile.joined_at}</Badge>}
+              {profile.joined_at && (
+                <Badge>first login {profile.joined_at}</Badge>
+              )}
+              {firstWorkout && (
+                <Badge>first workout {firstWorkout}</Badge>
+              )}
             </div>
           </div>
         </div>
+
+        <AttendanceGauges last12={last12Rate} lifetime={lifetimeRate} />
 
         <PbSection
           title="Lifts"

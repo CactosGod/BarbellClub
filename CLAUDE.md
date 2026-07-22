@@ -1,7 +1,8 @@
 # CLAUDE.md — BarbellClub repo
 
-Member portal for Käpylä Maanantai Barbell Club. Read `SPEC.md` first — it is the
-source of truth for features, build order, data model intent, and theme.
+Member portal for Käpylä Maanantai Barbell Club. Read in this order: `CLAUDE.md`
+(this file) → `SPEC.md` (features, build order, data model intent, theme) →
+`HANDOFF.md` (what shipped in Phases 4–6 + conventions/gotchas).
 
 ## Ground rules
 - Follow SPEC.md build order; keep each phase shippable before starting the next.

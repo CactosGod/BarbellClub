@@ -103,6 +103,58 @@ export default async function SessionPage({
       ? "/"
       : `/?week=${weekOffset}`;
 
+  // Adjacent workouts by (date, start_time, id). Keep `back` so Schedule returns
+  // to the same place after hopping sessions.
+  type Neighbor = {
+    id: number;
+    date: string;
+    start_time: string | null;
+    title: string;
+  };
+  const startTime = s.start_time ?? "00:00:00";
+  const [{ data: prevSameDay }, { data: prevEarlier }, { data: nextSameDay }, { data: nextLater }] =
+    await Promise.all([
+      supabase
+        .from("sessions")
+        .select("id, date, start_time, title")
+        .eq("date", s.date)
+        .lt("start_time", startTime)
+        .order("start_time", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("sessions")
+        .select("id, date, start_time, title")
+        .lt("date", s.date)
+        .order("date", { ascending: false })
+        .order("start_time", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("sessions")
+        .select("id, date, start_time, title")
+        .eq("date", s.date)
+        .gt("start_time", startTime)
+        .order("start_time", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("sessions")
+        .select("id, date, start_time, title")
+        .gt("date", s.date)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+  const prevSession = (prevSameDay ?? prevEarlier) as Neighbor | null;
+  const nextSession = (nextSameDay ?? nextLater) as Neighbor | null;
+  const navQs = safeBack ? `?back=${encodeURIComponent(back!)}` : "";
+
   // Staff-only whiteboard capture: show the pending review if one exists, else the
   // upload control. Uses the service-role client (staff-gated above).
   let whiteboardNode: ReactNode = null;
@@ -162,6 +214,42 @@ export default async function SessionPage({
             isFull={s.is_full}
           />
         </div>
+
+        <nav className="mt-4 flex items-stretch justify-between gap-3 text-sm">
+          {prevSession ? (
+            <Link
+              href={`/session/${prevSession.id}${navQs}`}
+              className="min-w-0 flex-1 rounded-md border border-charcoal-700 bg-charcoal-800 px-3 py-2 text-neutral-300 hover:border-gold hover:text-gold"
+            >
+              <span className="block text-xs text-neutral-500">Previous</span>
+              <span className="block truncate">
+                ← {formatDayLabel(prevSession.date)}
+                {prevSession.start_time
+                  ? ` · ${formatTime(prevSession.start_time)}`
+                  : ""}
+              </span>
+            </Link>
+          ) : (
+            <span className="flex-1" />
+          )}
+          {nextSession ? (
+            <Link
+              href={`/session/${nextSession.id}${navQs}`}
+              className="min-w-0 flex-1 rounded-md border border-charcoal-700 bg-charcoal-800 px-3 py-2 text-right text-neutral-300 hover:border-gold hover:text-gold"
+            >
+              <span className="block text-xs text-neutral-500">Next</span>
+              <span className="block truncate">
+                {formatDayLabel(nextSession.date)}
+                {nextSession.start_time
+                  ? ` · ${formatTime(nextSession.start_time)}`
+                  : ""}{" "}
+                →
+              </span>
+            </Link>
+          ) : (
+            <span className="flex-1" />
+          )}
+        </nav>
 
         <section className="mt-6 rounded-lg border border-charcoal-700 bg-charcoal-800 p-4">
           <h2 className="heading text-lg text-gold">Workout</h2>

@@ -117,3 +117,31 @@ export interface LeaderboardEntry {
   value_text: string | null;
   achieved_on: string | null;
 }
+
+// Strict JSON shape returned by the Claude vision parse. All-string fields (empty
+// = "none") keep the structured-output schema simple; the app normalizes on read.
+export interface WhiteboardParseResult {
+  name_on_board: string;
+  matched_member: string; // roster name guess, or "" for none
+  confidence: "high" | "low";
+  score: string; // as written on the board
+  rx: "rx" | "scaled" | "unknown";
+}
+
+export interface WhiteboardParse {
+  is_whiteboard: boolean;
+  workout_description: string; // "" = none legible
+  results: WhiteboardParseResult[];
+}
+
+export type ReviewStatus = "pending" | "reviewed" | "discarded";
+
+export interface WhiteboardUpload {
+  id: number;
+  session_id: number;
+  photo_path: string;
+  raw_parse: WhiteboardParse | null;
+  review_status: ReviewStatus;
+  uploaded_by: string | null;
+  created_at: string;
+}

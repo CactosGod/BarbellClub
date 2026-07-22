@@ -1,16 +1,21 @@
+import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import SignupButton from "@/components/SignupButton";
 import ResultForm from "@/components/ResultForm";
+import WhiteboardUpload from "@/components/WhiteboardUpload";
+import WhiteboardReview from "@/components/WhiteboardReview";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isStaff,
   type Attendee,
   type Result,
   type ResultWithMember,
   type Session,
+  type WhiteboardUpload as WhiteboardUploadRow,
 } from "@/lib/types";
 import {
   clubToday,
@@ -82,6 +87,40 @@ export default async function SessionPage({
 
   // Results are logged after training — offer the form only on today/past sessions.
   const canLog = s.date <= clubToday();
+
+  // Staff-only whiteboard capture: show the pending review if one exists, else the
+  // upload control. Uses the service-role client (staff-gated above).
+  let whiteboardNode: ReactNode = null;
+  if (isStaff(me.role)) {
+    const admin = createAdminClient();
+    const { data: pendingRow } = await admin
+      .from("whiteboard_uploads")
+      .select("*")
+      .eq("session_id", sessionId)
+      .eq("review_status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const pending = pendingRow as WhiteboardUploadRow | null;
+
+    if (pending?.raw_parse) {
+      const [{ data: signed }, { data: rosterRows }] = await Promise.all([
+        admin.storage.from("whiteboards").createSignedUrl(pending.photo_path, 3600),
+        admin.from("profiles").select("id, name").eq("status", "active").order("name"),
+      ]);
+      whiteboardNode = (
+        <WhiteboardReview
+          sessionId={s.id}
+          uploadId={pending.id}
+          photoUrl={signed?.signedUrl ?? null}
+          parse={pending.raw_parse}
+          roster={(rosterRows ?? []) as { id: string; name: string }[]}
+        />
+      );
+    } else {
+      whiteboardNode = <WhiteboardUpload sessionId={s.id} />;
+    }
+  }
 
   return (
     <>
@@ -175,6 +214,13 @@ export default async function SessionPage({
             </ul>
           )}
         </section>
+
+        {whiteboardNode && (
+          <section className="mt-8">
+            <h2 className="heading text-lg text-gold">Whiteboard</h2>
+            <div className="mt-3">{whiteboardNode}</div>
+          </section>
+        )}
       </main>
     </>
   );

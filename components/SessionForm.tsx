@@ -1,7 +1,7 @@
 "use client";
 
 import { isoToClubLocal } from "@/lib/schedule";
-import type { Session } from "@/lib/types";
+import type { Benchmark, Movement, Session } from "@/lib/types";
 
 const field =
   "mt-1 w-full rounded-md border border-charcoal-700 bg-charcoal px-2 py-1.5 text-sm";
@@ -13,11 +13,21 @@ export default function SessionForm({
   action,
   session,
   submitLabel,
+  movements,
+  benchmarks,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   session?: Session;
   submitLabel: string;
+  movements: Movement[];
+  benchmarks: Benchmark[];
 }) {
+  const tagDefault = session?.movement_id
+    ? `movement:${session.movement_id}`
+    : session?.benchmark_id
+      ? `benchmark:${session.benchmark_id}`
+      : "";
+
   return (
     <form action={action} className="space-y-3">
       {session && <input type="hidden" name="id" value={session.id} />}
@@ -51,6 +61,27 @@ export default function SessionForm({
           defaultValue={session?.title ?? "Barbell Club"}
           className={field}
         />
+      </label>
+
+      <label className={label}>
+        Benchmark / lift (optional — enables PB tracking)
+        <select name="tag" defaultValue={tagDefault} className={field}>
+          <option value="">None</option>
+          <optgroup label="Benchmarks">
+            {benchmarks.map((b) => (
+              <option key={`b${b.id}`} value={`benchmark:${b.id}`}>
+                {b.name}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Lifts">
+            {movements.map((m) => (
+              <option key={`m${m.id}`} value={`movement:${m.id}`}>
+                {m.name}
+              </option>
+            ))}
+          </optgroup>
+        </select>
       </label>
 
       <label className={label}>

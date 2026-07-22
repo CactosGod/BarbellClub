@@ -12,6 +12,12 @@ export default function Header({ profile }: { profile: Profile }) {
           <Wordmark size={34} />
         </Link>
         <nav className="flex items-center gap-4 text-sm">
+          <Link
+            href="/leaderboard"
+            className="text-neutral-300 hover:text-white"
+          >
+            Leaderboard
+          </Link>
           {isStaff(profile.role) && (
             <Link href="/coach" className="text-neutral-300 hover:text-white">
               Coach

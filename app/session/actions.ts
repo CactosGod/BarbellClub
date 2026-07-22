@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseScore, SCORE_TYPES } from "@/lib/results";
+import { isBetter, type PbKind } from "@/lib/pb";
 import type { ScoreType } from "@/lib/types";
 
 export type SignupState = { error: string | null };
@@ -52,7 +53,74 @@ export async function toggleSignup(
   return { error: null };
 }
 
-export type ResultState = { error: string | null };
+// Surfaced when a logged result beats (or first-sets) the member's PB for a
+// movement/benchmark the session is tagged with. The UI offers to save it.
+export type PbPrompt = {
+  kind: PbKind;
+  itemId: number;
+  name: string;
+  value: number;
+  valueText: string;
+};
+
+export type ResultState = { error: string | null; pb?: PbPrompt | null };
+
+// If the session is tagged with a movement/benchmark and the just-logged result
+// beats the member's stored PB for it, return a prompt describing the new PB.
+async function detectPb(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  sessionId: number,
+  scoreType: ScoreType,
+  value: number | null,
+  valueText: string,
+): Promise<PbPrompt | null> {
+  if (value == null) return null;
+
+  const { data: sess } = await supabase
+    .from("sessions")
+    .select("movement_id, benchmark_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!sess) return null;
+
+  if (sess.benchmark_id) {
+    const { data: bench } = await supabase
+      .from("benchmarks")
+      .select("id, name, score_type")
+      .eq("id", sess.benchmark_id)
+      .maybeSingle();
+    // Only compare when the logged type matches the benchmark's scoring.
+    if (!bench || bench.score_type !== scoreType) return null;
+    const { data: cur } = await supabase
+      .from("personal_bests")
+      .select("value")
+      .eq("profile_id", userId)
+      .eq("benchmark_id", bench.id)
+      .maybeSingle();
+    if (!isBetter(scoreType, value, cur?.value ?? null)) return null;
+    return { kind: "benchmark", itemId: bench.id, name: bench.name, value, valueText };
+  }
+
+  if (sess.movement_id && scoreType === "load") {
+    const { data: mv } = await supabase
+      .from("movements")
+      .select("id, name")
+      .eq("id", sess.movement_id)
+      .maybeSingle();
+    if (!mv) return null;
+    const { data: cur } = await supabase
+      .from("personal_bests")
+      .select("value")
+      .eq("profile_id", userId)
+      .eq("movement_id", mv.id)
+      .maybeSingle();
+    if (!isBetter("load", value, cur?.value ?? null)) return null;
+    return { kind: "movement", itemId: mv.id, name: mv.name, value, valueText };
+  }
+
+  return null;
+}
 
 // Log (or update) the signed-in member's own result for a session. One result per
 // (member, session): we upsert on that pair. A self-logged result OVERRIDES any
@@ -105,8 +173,17 @@ export async function logResult(
     );
   if (error) return { error: "Couldn't save — please try again." };
 
+  const pb = await detectPb(
+    supabase,
+    user.id,
+    sessionId,
+    scoreType,
+    parsed.value,
+    parsed.value_text,
+  );
+
   revalidatePath(`/session/${sessionId}`);
-  return { error: null };
+  return { error: null, pb };
 }
 
 // Remove the caller's own result for a session. Guarded to their own row.

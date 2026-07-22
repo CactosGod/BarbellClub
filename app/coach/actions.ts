@@ -64,6 +64,13 @@ function parseSessionFields(formData: FormData) {
   const revealRaw = String(formData.get("reveal_at") ?? "").trim();
   const capacity = capacityRaw ? Number(capacityRaw) : null;
 
+  // Optional PB tag: "movement:<id>" | "benchmark:<id>" | "".
+  const tag = String(formData.get("tag") ?? "");
+  let movement_id: number | null = null;
+  let benchmark_id: number | null = null;
+  if (tag.startsWith("movement:")) movement_id = Number(tag.slice(9)) || null;
+  else if (tag.startsWith("benchmark:")) benchmark_id = Number(tag.slice(10)) || null;
+
   return {
     date,
     start_time: startTime || null,
@@ -72,6 +79,8 @@ function parseSessionFields(formData: FormData) {
     capacity: capacity != null && Number.isFinite(capacity) ? capacity : null,
     // <input datetime-local> gives club wall-clock; store as a UTC instant.
     reveal_at: revealRaw ? clubLocalToIso(revealRaw) : null,
+    movement_id,
+    benchmark_id,
   };
 }
 

@@ -61,7 +61,10 @@ create table sessions (
   capacity int,
   coach_id uuid references profiles,
   template_id int references session_templates,
+  movement_id int references movements,    -- optional: tags this session as a named
+  benchmark_id int references benchmarks,   -- lift or benchmark, for PB comparison
   created_at timestamptz default now(),
+  check (num_nonnulls(movement_id, benchmark_id) <= 1),
   unique (date, start_time)
 );
 

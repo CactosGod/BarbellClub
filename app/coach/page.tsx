@@ -5,6 +5,8 @@ import { getCurrentProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isStaff,
+  type Benchmark,
+  type Movement,
   type Profile,
   type Session,
   type SessionTemplate,
@@ -52,29 +54,38 @@ export default async function CoachPage() {
   const today = clubToday();
 
   // Service role: staff manage the full picture regardless of RLS.
-  const [{ data: profileRows }, { data: sessionRows }, { data: templateRows }] =
-    await Promise.all([
-      admin
-        .from("profiles")
-        .select("*")
-        .order("status", { ascending: true })
-        .order("created_at", { ascending: true }),
-      admin
-        .from("sessions")
-        .select("*")
-        .gte("date", today)
-        .order("date")
-        .order("start_time"),
-      admin
-        .from("session_templates")
-        .select("*")
-        .order("weekday")
-        .order("start_time"),
-    ]);
+  const [
+    { data: profileRows },
+    { data: sessionRows },
+    { data: templateRows },
+    { data: movementRows },
+    { data: benchmarkRows },
+  ] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("*")
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: true }),
+    admin
+      .from("sessions")
+      .select("*")
+      .gte("date", today)
+      .order("date")
+      .order("start_time"),
+    admin
+      .from("session_templates")
+      .select("*")
+      .order("weekday")
+      .order("start_time"),
+    admin.from("movements").select("*").order("name"),
+    admin.from("benchmarks").select("*").order("name"),
+  ]);
 
   const profiles = (profileRows ?? []) as Profile[];
   const sessions = (sessionRows ?? []) as Session[];
   const templates = (templateRows ?? []) as SessionTemplate[];
+  const movements = (movementRows ?? []) as Movement[];
+  const benchmarks = (benchmarkRows ?? []) as Benchmark[];
   const pending = profiles.filter((p) => p.status === "pending");
   const others = profiles.filter((p) => p.status !== "pending");
   const isAdmin = me.role === "admin";
@@ -125,6 +136,8 @@ export default async function CoachPage() {
                       action={updateSession}
                       session={s}
                       submitLabel="Save changes"
+                      movements={movements}
+                      benchmarks={benchmarks}
                     />
                   </div>
                 </details>
@@ -142,7 +155,12 @@ export default async function CoachPage() {
               + New session
             </summary>
             <div className="mt-3">
-              <SessionForm action={createSession} submitLabel="Create session" />
+              <SessionForm
+                action={createSession}
+                submitLabel="Create session"
+                movements={movements}
+                benchmarks={benchmarks}
+              />
             </div>
           </details>
         </section>

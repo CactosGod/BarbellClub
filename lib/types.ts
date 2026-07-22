@@ -29,6 +29,8 @@ export interface Session {
   capacity: number | null; // null = unlimited
   coach_id: string | null;
   template_id: number | null;
+  movement_id: number | null; // optional PB tag: a named lift…
+  benchmark_id: number | null; // …or a benchmark (at most one set)
   created_at: string;
 }
 
@@ -80,4 +82,38 @@ export interface Result {
 export interface ResultWithMember extends Result {
   name: string;
   photo_url: string | null;
+}
+
+export interface Movement {
+  id: number;
+  name: string;
+  unit: string; // e.g. "kg"
+}
+
+export interface Benchmark {
+  id: number;
+  name: string;
+  score_type: ScoreType;
+  description: string | null;
+}
+
+export interface PersonalBest {
+  id: number;
+  profile_id: string;
+  movement_id: number | null;
+  benchmark_id: number | null;
+  value: number | null;
+  value_text: string | null;
+  achieved_on: string | null;
+  visibility: Visibility;
+}
+
+// A club-visible PB joined to its member, for leaderboards.
+export interface LeaderboardEntry {
+  profile_id: string;
+  name: string;
+  photo_url: string | null;
+  value: number | null;
+  value_text: string | null;
+  achieved_on: string | null;
 }

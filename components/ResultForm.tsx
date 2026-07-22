@@ -6,10 +6,12 @@ import {
   deleteResult,
   type ResultState,
 } from "@/app/session/actions";
+import { savePb, type SavePbState } from "@/app/profile/[id]/actions";
 import { SCORE_TYPES, SCORE_TYPE_LABELS } from "@/lib/results";
 import type { Result, ScoreType } from "@/lib/types";
 
 const INITIAL: ResultState = { error: null };
+const PB_INITIAL: SavePbState = { saved: false };
 
 const field =
   "mt-1 w-full rounded-md border border-charcoal-700 bg-charcoal px-2 py-1.5 text-sm";
@@ -44,6 +46,7 @@ export default function ResultForm({
   existing: Result | null;
 }) {
   const [state, action, pending] = useActionState(logResult, INITIAL);
+  const [pbState, savePbAction, pbPending] = useActionState(savePb, PB_INITIAL);
   const [scoreType, setScoreType] = useState<ScoreType>(
     existing?.score_type ?? "time",
   );
@@ -187,6 +190,33 @@ export default function ResultForm({
           )}
         </div>
       </form>
+
+      {state.pb && !pbState.saved && (
+        <form
+          action={savePbAction}
+          className="mt-3 flex items-center justify-between gap-3 rounded-md border border-gold/40 bg-gold/10 p-3"
+        >
+          <input type="hidden" name="kind" value={state.pb.kind} />
+          <input type="hidden" name="item_id" value={state.pb.itemId} />
+          <input type="hidden" name="value" value={state.pb.value} />
+          <input type="hidden" name="value_text" value={state.pb.valueText} />
+          <p className="text-sm text-gold">
+            🎉 New PB on <span className="font-semibold">{state.pb.name}</span>:{" "}
+            {state.pb.valueText}
+          </p>
+          <button
+            type="submit"
+            disabled={pbPending}
+            className="shrink-0 rounded-md bg-gold px-3 py-1.5 text-sm font-semibold text-charcoal hover:bg-gold/90 disabled:opacity-60"
+          >
+            {pbPending ? "Saving…" : "Save PB"}
+          </button>
+        </form>
+      )}
+
+      {pbState.saved && (
+        <p className="mt-3 text-sm text-gold">✓ PB saved.</p>
+      )}
 
       {existing && (
         <form action={deleteResult} className="mt-3">

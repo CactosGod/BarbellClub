@@ -1,0 +1,6 @@
+node_modules/
+.env*
+import/whatsapp/
+import/*.jsonl
+import/roster.json
+import/*.txt

@@ -62,6 +62,8 @@ export default function AttendanceTimeline({
     );
   }
 
+  const firstName = (full: string) => full.trim().split(/\s+/)[0] || full;
+
   const data = months.map((mk) => {
     const row: Record<string, string | number> = {
       month: shortMonth(mk),
@@ -72,6 +74,10 @@ export default function AttendanceTimeline({
     }
     return row;
   });
+
+  const labelById = new Map(
+    series.map((s) => [s.profile_id, firstName(s.name)]),
+  );
 
   return (
     <div className="mt-3 w-full overflow-x-auto">
@@ -104,13 +110,17 @@ export default function AttendanceTimeline({
                 fontSize: 12,
               }}
               labelStyle={{ color: "#e5e5e5" }}
+              formatter={(value, name) => {
+                const label =
+                  labelById.get(String(name)) ?? firstName(String(name));
+                return [value, label];
+              }}
             />
             <Legend
               wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-              formatter={(value) => {
-                const s = series.find((x) => x.profile_id === value);
-                return s?.name ?? value;
-              }}
+              formatter={(value) =>
+                labelById.get(String(value)) ?? firstName(String(value))
+              }
             />
             {series.map((s, i) => (
               <Line

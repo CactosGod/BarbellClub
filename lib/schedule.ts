@@ -74,14 +74,15 @@ export function weekDates(offset: number, now: Date = new Date()): string[] {
   });
 }
 
-// "Sun 27 Jul" — a compact day heading. Formatted in UTC because the ymd is a bare
-// calendar date with no time-of-day.
+// "Sun 27 Jul 2026" — a compact day heading. Formatted in UTC because the ymd
+// is a bare calendar date with no time-of-day.
 export function formatDayLabel(ymd: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "UTC",
     weekday: "short",
     day: "numeric",
     month: "short",
+    year: "numeric",
   }).format(parseYmd(ymd));
 }
 

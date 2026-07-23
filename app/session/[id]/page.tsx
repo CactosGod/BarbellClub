@@ -24,7 +24,6 @@ import {
   formatDayLabel,
   formatReveal,
   formatTime,
-  weekOffsetFor,
 } from "@/lib/schedule";
 
 type MemberJoin = { name: string; photo_url: string | null } | null;
@@ -97,15 +96,10 @@ export default async function SessionPage({
   const past = s.date < today;
   const scoreMissing = past && s.is_signed_up && !myResult;
 
-  // Return to where the user came from; only accept in-app relative paths. Fall
-  // back to the week the session sits in so a direct link doesn't dump them at today.
+  // Return to where the user came from; only accept in-app relative paths.
+  // Direct links: upcoming sessions → Upcoming; past → All workouts.
   const safeBack = back && back.startsWith("/") && !back.startsWith("//");
-  const weekOffset = weekOffsetFor(s.date);
-  const backHref = safeBack
-    ? back
-    : weekOffset === 0
-      ? "/"
-      : `/?week=${weekOffset}`;
+  const backHref = safeBack ? back : s.date >= today ? "/" : "/?view=list";
 
   // Adjacent workouts by (date, start_time, id). Keep `back` so Schedule returns
   // to the same place after hopping sessions.

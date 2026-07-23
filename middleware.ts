@@ -8,6 +8,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Run on everything except static assets. Auth logic lives in updateSession.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|logo.png|manifest.json|.*\\.(?:png|jpg|jpeg|gif|svg|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|logo.png|manifest.json|sw.js|.*\\.(?:png|jpg|jpeg|gif|svg|webp)$).*)",
   ],
 };

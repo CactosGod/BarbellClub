@@ -120,12 +120,14 @@ export default async function CoachPage() {
                       {s.reveal_at ? " · WOD hidden until reveal" : ""}
                     </p>
                   </div>
-                  <form action={deleteSession}>
-                    <input type="hidden" name="id" value={s.id} />
-                    <button className="rounded-md border border-charcoal-700 px-2 py-1 text-xs text-neutral-400 hover:border-red hover:text-red">
-                      Delete
-                    </button>
-                  </form>
+                  {isAdmin && (
+                    <form action={deleteSession}>
+                      <input type="hidden" name="id" value={s.id} />
+                      <button className="rounded-md border border-charcoal-700 px-2 py-1 text-xs text-neutral-400 hover:border-red hover:text-red">
+                        Delete
+                      </button>
+                    </form>
+                  )}
                 </div>
                 <details className="mt-2">
                   <summary className="cursor-pointer text-xs text-neutral-400 hover:text-white">

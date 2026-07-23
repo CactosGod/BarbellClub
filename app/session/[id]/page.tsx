@@ -6,6 +6,7 @@ import SignupButton from "@/components/SignupButton";
 import ResultForm from "@/components/ResultForm";
 import WhiteboardUpload from "@/components/WhiteboardUpload";
 import WhiteboardReview from "@/components/WhiteboardReview";
+import { deleteSession } from "@/app/coach/actions";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -325,6 +326,29 @@ export default async function SessionPage({
           <section className="mt-8">
             <h2 className="heading text-lg text-gold">Whiteboard</h2>
             <div className="mt-3">{whiteboardNode}</div>
+          </section>
+        )}
+
+        {me.role === "admin" && (
+          <section className="mt-10">
+            <details className="rounded-lg border border-charcoal-700 p-3">
+              <summary className="cursor-pointer text-sm text-neutral-500 hover:text-red">
+                Delete this session (admin)
+              </summary>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-neutral-500">
+                  Permanently deletes the session and its signups, results and
+                  whiteboard uploads. Use for phantom/duplicate sessions.
+                </p>
+                <form action={deleteSession}>
+                  <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="from" value="session" />
+                  <button className="rounded-md bg-red px-3 py-1.5 text-sm font-medium text-white hover:bg-red/90">
+                    Delete session
+                  </button>
+                </form>
+              </div>
+            </details>
           </section>
         )}
       </main>

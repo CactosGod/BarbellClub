@@ -39,3 +39,38 @@ body {
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
+
+/* Immediate touch feedback for links and controls. Android also gets a short
+   vibration from InteractionFeedback; iOS Safari supports visual feedback only. */
+@media (hover: none) and (pointer: coarse) {
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    -webkit-tap-highlight-color: rgb(227 30 36 / 20%);
+    transition:
+      opacity 80ms ease,
+      transform 80ms ease,
+      filter 80ms ease;
+    touch-action: manipulation;
+  }
+
+  a[href]:active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    filter: brightness(1.18);
+    opacity: 0.72;
+  }
+
+  button:not(:disabled):active {
+    filter: brightness(1.18);
+    opacity: 0.78;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a[href],
+  button,
+  [role="button"] {
+    transition: none;
+  }
+}

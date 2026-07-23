@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Inter } from "next/font/google";
+import InteractionFeedback from "@/components/InteractionFeedback";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
     <html lang="en" className={`${anton.variable} ${inter.variable}`}>
       <body className="font-sans antialiased min-h-dvh">
         {children}
+        <InteractionFeedback />
         <PwaInstallPrompt />
       </body>
     </html>

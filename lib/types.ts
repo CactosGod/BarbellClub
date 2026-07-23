@@ -56,6 +56,8 @@ export interface SessionWithMeta extends Session {
   is_signed_up: boolean;
   is_full: boolean;
   wod_hidden: boolean;
+  /** Viewer has a logged result for this session (when fetched). */
+  has_my_result?: boolean;
 }
 
 // A signed-up member, for attendee lists.

@@ -17,7 +17,7 @@ import {
 
 const PAGE_SIZE = 20;
 
-// Attach signup counts + whether the viewer is signed up, in one query.
+// Attach signup counts, whether the viewer is signed up, and whether they logged.
 async function withMeta(
   supabase: SupabaseClient,
   sessions: Session[],
@@ -27,23 +27,35 @@ async function withMeta(
   const ids = sessions.map((s) => s.id);
   const counts = new Map<number, number>();
   const mine = new Set<number>();
+  const myResults = new Set<number>();
   if (ids.length) {
-    const { data } = await supabase
-      .from("signups")
-      .select("session_id, profile_id")
-      .in("session_id", ids);
-    for (const s of data ?? []) {
+    const [{ data: signupData }, { data: resultData }] = await Promise.all([
+      supabase
+        .from("signups")
+        .select("session_id, profile_id")
+        .in("session_id", ids),
+      supabase
+        .from("results")
+        .select("session_id")
+        .eq("profile_id", meId)
+        .in("session_id", ids),
+    ]);
+    for (const s of signupData ?? []) {
       counts.set(s.session_id, (counts.get(s.session_id) ?? 0) + 1);
       if (s.profile_id === meId) mine.add(s.session_id);
     }
+    for (const r of resultData ?? []) {
+      myResults.add(r.session_id);
+    }
   }
-  return sessions.map((s) =>
-    decorateSession(s, {
+  return sessions.map((s) => ({
+    ...decorateSession(s, {
       signupCount: counts.get(s.id) ?? 0,
       isSignedUp: mine.has(s.id),
       isStaff: staff,
     }),
-  );
+    has_my_result: myResults.has(s.id),
+  }));
 }
 
 export default async function HomePage({
@@ -145,6 +157,7 @@ export default async function HomePage({
                 isToday={g.date === today}
                 sessions={g.sessions}
                 backHref={backHref}
+                today={today}
               />
             ))
           )}
@@ -202,11 +215,13 @@ function DayRow({
   isToday,
   sessions,
   backHref,
+  today,
 }: {
   date: string;
   isToday: boolean;
   sessions: SessionWithMeta[];
   backHref: string;
+  today: string;
 }) {
   return (
     <section
@@ -232,7 +247,12 @@ function DayRow({
       ) : (
         <ul className="mt-2 space-y-2">
           {sessions.map((s) => (
-            <SessionCard key={s.id} s={s} backHref={backHref} />
+            <SessionCard
+              key={s.id}
+              s={s}
+              backHref={backHref}
+              today={today}
+            />
           ))}
         </ul>
       )}
@@ -240,9 +260,22 @@ function DayRow({
   );
 }
 
-function SessionCard({ s, backHref }: { s: SessionWithMeta; backHref: string }) {
+function SessionCard({
+  s,
+  backHref,
+  today,
+}: {
+  s: SessionWithMeta;
+  backHref: string;
+  today: string;
+}) {
   const capacityLabel =
     s.capacity != null ? `${s.signup_count}/${s.capacity}` : `${s.signup_count}`;
+  const past = s.date < today;
+  const scoreMissing = past && s.is_signed_up && !s.has_my_result;
+  // Past: offer "I was here" only when not signed up. Leave ("I was not here")
+  // is only on the session page.
+  const showSignup = !past || !s.is_signed_up;
 
   return (
     <li className="flex items-center justify-between gap-3 rounded-md border border-charcoal-700 bg-charcoal p-3">
@@ -258,20 +291,26 @@ function SessionCard({ s, backHref }: { s: SessionWithMeta; backHref: string }) 
           )}
           <span className="truncate font-medium">{s.title}</span>
         </div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
           <span>{capacityLabel} in</span>
           {s.wod_hidden && <span className="text-neutral-500">· WOD hidden</span>}
-          {s.is_full && !s.is_signed_up && (
+          {s.is_full && !s.is_signed_up && !past && (
             <span className="text-red">· full</span>
+          )}
+          {scoreMissing && (
+            <span className="text-orange">· score missing, please add</span>
           )}
         </div>
       </Link>
-      <SignupButton
-        sessionId={s.id}
-        isSignedUp={s.is_signed_up}
-        isFull={s.is_full}
-        size="sm"
-      />
+      {showSignup && (
+        <SignupButton
+          sessionId={s.id}
+          isSignedUp={s.is_signed_up}
+          isFull={s.is_full}
+          past={past}
+          size="sm"
+        />
+      )}
     </li>
   );
 }

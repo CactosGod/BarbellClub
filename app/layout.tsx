@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Inter } from "next/font/google";
+import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import "./globals.css";
 
 const anton = Anton({
@@ -20,12 +21,18 @@ export const metadata: Metadata = {
   description: "Member portal — schedule, results, PBs and leaderboards.",
   manifest: "/manifest.json",
   icons: { icon: "/logo.png", apple: "/logo.png" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "KMBC",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#1a1a1a",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -35,7 +42,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${anton.variable} ${inter.variable}`}>
-      <body className="font-sans antialiased min-h-dvh">{children}</body>
+      <body className="font-sans antialiased min-h-dvh">
+        {children}
+        <PwaInstallPrompt />
+      </body>
     </html>
   );
 }

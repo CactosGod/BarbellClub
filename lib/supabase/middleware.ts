@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/auth") ||
     pathname.startsWith("/_next") ||
     pathname === "/manifest.json" ||
+    pathname === "/sw.js" ||
     pathname === "/logo.png";
 
   if (!user && !isPublic) {

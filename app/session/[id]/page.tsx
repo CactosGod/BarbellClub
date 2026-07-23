@@ -92,7 +92,10 @@ export default async function SessionPage({
   });
 
   // Results are logged after training — offer the form only on today/past sessions.
-  const canLog = s.date <= clubToday();
+  const today = clubToday();
+  const canLog = s.date <= today;
+  const past = s.date < today;
+  const scoreMissing = past && s.is_signed_up && !myResult;
 
   // Return to where the user came from; only accept in-app relative paths. Fall
   // back to the week the session sits in so a direct link doesn't dump them at today.
@@ -213,8 +216,15 @@ export default async function SessionPage({
             sessionId={s.id}
             isSignedUp={s.is_signed_up}
             isFull={s.is_full}
+            past={past}
           />
         </div>
+
+        {scoreMissing && (
+          <p className="mt-3 text-sm text-orange">
+            Score missing, please add.
+          </p>
+        )}
 
         <nav className="mt-4 flex items-stretch justify-between gap-3 text-sm">
           {prevSession ? (

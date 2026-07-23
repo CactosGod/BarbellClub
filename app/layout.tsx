@@ -20,9 +20,16 @@ export const metadata: Metadata = {
   title: "Käpylä Maanantai Barbell Club",
   description: "Member portal — schedule, results, PBs and leaderboards.",
   manifest: "/manifest.json",
-  icons: { icon: "/logo.png", apple: "/logo.png" },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
+    // Translucent status bar; header pads with safe-area-inset-top.
     statusBarStyle: "black-translucent",
     title: "KMBC",
   },

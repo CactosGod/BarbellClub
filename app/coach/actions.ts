@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -113,9 +114,12 @@ export async function updateSession(formData: FormData) {
   revalidatePath(`/session/${id}`);
 }
 
+// Deleting a session cascades to its signups, results and whiteboard uploads, so
+// it's restricted to admins. `from=session` redirects home afterward (the session
+// page it was deleted from no longer exists).
 export async function deleteSession(formData: FormData) {
-  const me = await requireStaff();
-  if (!me) return;
+  const me = await getCurrentProfile();
+  if (!me || me.role !== "admin") return;
 
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id)) return;
@@ -123,6 +127,11 @@ export async function deleteSession(formData: FormData) {
   await createAdminClient().from("sessions").delete().eq("id", id);
   revalidatePath("/coach");
   revalidatePath("/");
+
+  if (String(formData.get("from")) === "session") {
+    revalidatePath(`/session/${id}`);
+    redirect("/");
+  }
 }
 
 // ---------------------------------------------------------------------------

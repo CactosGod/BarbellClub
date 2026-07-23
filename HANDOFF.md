@@ -4,6 +4,35 @@ Context for continuing development. Read `CLAUDE.md` and `SPEC.md` first — thi
 doc covers what shipped after Phase 3 and the conventions/gotchas that aren't
 obvious from the diff. All six SPEC phases are now complete.
 
+---
+
+## Memo for Svante — 2026-07-23
+
+Picking up from where you left off. Since your attendance work landed:
+
+- **`main` now includes your PRs #8/#9** (attendance timeline, profile stats,
+  session prev/next nav, recharts). Synced and building clean on our side; your
+  session prev/next nicely reuses the `back` query param we added.
+- **New this session — admin-only session delete** (the change this branch adds):
+  - `deleteSession` in `app/coach/actions.ts` is now **admin-only** (`role ===
+    "admin"`), and the coach-tools Delete button only renders for admins.
+  - A delete control was added to the **session page** itself (bottom, behind a
+    `<details>` reveal), so **past sessions are reachable** — the coach list only
+    shows upcoming ones. It posts with `from=session`, which makes the action
+    `redirect("/")` after deleting. Deletion cascades to signups/results/
+    whiteboard_uploads (FK `on delete cascade`).
+  - Motivation: phantom/duplicate sessions in the timeline (e.g. a Saturday with
+    no real workout) needed a way to be removed. If a *bulk* of phantoms shows
+    up, prefer a one-off cleanup script over clicking each.
+- **Your `import-name-matching` branch is NOT merged** (as requested — Oskari is
+  checking whether it's still live). ⚠️ Heads-up: it overlaps the Phase 6 import
+  approach already on `main`. Ours stores unclaimed results directly on
+  `results` (`board_name`, nullable `profile_id`) and auto-claims on signup via
+  `claim_results(uid)`, plus a profile "claim past results" UI (PR #6). Your
+  branch adds import **staging tables** + a **coach matching UI**. Before merging,
+  decide which import path is canonical — running both would double-load history.
+  The historical scrape has **already been run** into `results` (1017 rows).
+
 ## Stack recap
 Next.js (App Router) + Tailwind v4 + Supabase (Postgres, Google OAuth, Storage,
 RLS) + Anthropic API. Server Components + Server Actions throughout; no client

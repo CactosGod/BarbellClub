@@ -27,7 +27,11 @@ import {
 } from "@/lib/schedule";
 
 type MemberJoin = { name: string; photo_url: string | null } | null;
-type SignupRow = { profile_id: string; profiles: MemberJoin };
+type SignupRow = {
+  profile_id: string;
+  status: "in" | "out";
+  profiles: MemberJoin;
+};
 type ResultRow = Result & { profiles: MemberJoin };
 
 export default async function SessionPage({
@@ -57,16 +61,18 @@ export default async function SessionPage({
 
   const { data: signupRows } = await supabase
     .from("signups")
-    .select("profile_id, profiles(name, photo_url)")
+    .select("profile_id, status, profiles(name, photo_url)")
     .eq("session_id", sessionId)
     .order("created_at");
   const signups = (signupRows ?? []) as unknown as SignupRow[];
 
-  const attendees: Attendee[] = signups.map((s) => ({
-    profile_id: s.profile_id,
-    name: s.profiles?.name ?? "Member",
-    photo_url: s.profiles?.photo_url ?? null,
-  }));
+  const toAttendee = (row: SignupRow): Attendee => ({
+    profile_id: row.profile_id,
+    name: row.profiles?.name ?? "Member",
+    photo_url: row.profiles?.photo_url ?? null,
+  });
+  const attendees = signups.filter((row) => row.status !== "out").map(toAttendee);
+  const outs = signups.filter((row) => row.status === "out").map(toAttendee);
 
   const { data: resultRows } = await supabase
     .from("results")
@@ -84,11 +90,14 @@ export default async function SessionPage({
   }));
   const myResult = results.find((r) => r.profile_id === me.id) ?? null;
 
-  const s = decorateSession(session, {
-    signupCount: attendees.length,
-    isSignedUp: attendees.some((a) => a.profile_id === me.id),
-    isStaff: isStaff(me.role),
-  });
+  const s = {
+    ...decorateSession(session, {
+      signupCount: attendees.length,
+      isSignedUp: attendees.some((a) => a.profile_id === me.id),
+      isStaff: isStaff(me.role),
+    }),
+    is_out: outs.some((a) => a.profile_id === me.id),
+  };
 
   // Results are logged after training — offer the form only on today/past sessions.
   const today = clubToday();
@@ -198,7 +207,7 @@ export default async function SessionPage({
           ← Schedule
         </Link>
 
-        <div className="mt-3 flex items-start justify-between gap-4">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="heading text-3xl">{s.title}</h1>
             <p className="mt-1 text-neutral-400">
@@ -209,6 +218,7 @@ export default async function SessionPage({
           <SignupButton
             sessionId={s.id}
             isSignedUp={s.is_signed_up}
+            isOut={s.is_out}
             isFull={s.is_full}
             past={past}
           />
@@ -294,6 +304,11 @@ export default async function SessionPage({
                 </li>
               ))}
             </ul>
+          )}
+          {outs.length > 0 && (
+            <p className="mt-3 text-sm text-neutral-500">
+              Nilkkatulehdus: {outs.map((a) => a.name).join(", ")}
+            </p>
           )}
         </section>
 

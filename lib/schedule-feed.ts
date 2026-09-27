@@ -16,12 +16,13 @@ export async function withMeta(
   const ids = sessions.map((s) => s.id);
   const counts = new Map<number, number>();
   const mine = new Set<number>();
+  const mineOut = new Set<number>();
   const myResults = new Set<number>();
   if (ids.length) {
     const [{ data: signupData }, { data: resultData }] = await Promise.all([
       supabase
         .from("signups")
-        .select("session_id, profile_id")
+        .select("session_id, profile_id, status")
         .in("session_id", ids),
       supabase
         .from("results")
@@ -30,6 +31,10 @@ export async function withMeta(
         .in("session_id", ids),
     ]);
     for (const s of signupData ?? []) {
+      if (s.status === "out") {
+        if (s.profile_id === meId) mineOut.add(s.session_id);
+        continue;
+      }
       counts.set(s.session_id, (counts.get(s.session_id) ?? 0) + 1);
       if (s.profile_id === meId) mine.add(s.session_id);
     }
@@ -43,6 +48,7 @@ export async function withMeta(
       isSignedUp: mine.has(s.id),
       isStaff: staff,
     }),
+    is_out: mineOut.has(s.id),
     has_my_result: myResults.has(s.id),
   }));
 }

@@ -59,10 +59,9 @@ function SessionCard({
     s.capacity != null ? `${s.signup_count}/${s.capacity}` : `${s.signup_count}`;
   const past = s.date < today;
   const scoreMissing = past && s.is_signed_up && !s.has_my_result;
-  const showSignup = !past || !s.is_signed_up;
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-md border border-charcoal-700 bg-charcoal p-3">
+    <li className="flex flex-col gap-2 rounded-md border border-charcoal-700 bg-charcoal p-3 sm:flex-row sm:items-center sm:justify-between">
       <Link
         href={`/session/${s.id}?back=${encodeURIComponent(backHref)}`}
         className="min-w-0 flex-1"
@@ -86,15 +85,14 @@ function SessionCard({
           )}
         </div>
       </Link>
-      {showSignup && (
-        <SignupButton
-          sessionId={s.id}
-          isSignedUp={s.is_signed_up}
-          isFull={s.is_full}
-          past={past}
-          size="sm"
-        />
-      )}
+      <SignupButton
+        sessionId={s.id}
+        isSignedUp={s.is_signed_up}
+        isOut={s.is_out}
+        isFull={s.is_full}
+        past={past}
+        size="sm"
+      />
     </li>
   );
 }

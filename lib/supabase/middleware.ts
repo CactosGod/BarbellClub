@@ -46,7 +46,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/manifest.json" ||
     pathname === "/sw.js" ||
-    pathname === "/logo.png";
+    pathname === "/logo.png" ||
+    pathname === "/calendar.ics";
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

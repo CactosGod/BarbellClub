@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AllWorkoutsFeed from "@/components/AllWorkoutsFeed";
@@ -26,6 +27,7 @@ export default async function HomePage({
   const view = sp.view === "list" ? "list" : "upcoming";
   const today = clubToday();
   const staff = isStaff(me.role);
+  const subscribeHref = googleCalendarHref(await feedOrigin());
 
   return (
     <>
@@ -43,8 +45,16 @@ export default async function HomePage({
           )}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <ViewToggle view={view} />
+          <a
+            href={subscribeHref}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-gold hover:underline"
+          >
+            Subscribe in Google Calendar
+          </a>
         </div>
 
         <div className="mt-6">
@@ -120,6 +130,20 @@ async function AllWorkoutsList({
       today={today}
     />
   );
+}
+
+async function feedOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto =
+    h.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+function googleCalendarHref(origin: string): string {
+  const feed = `${origin}/calendar.ics`;
+  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feed)}`;
 }
 
 function ViewToggle({ view }: { view: "upcoming" | "list" }) {

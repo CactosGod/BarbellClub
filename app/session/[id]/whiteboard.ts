@@ -54,8 +54,7 @@ export async function parseWhiteboard(
       admin
         .from("signups")
         .select("profiles(name)")
-        .eq("session_id", sessionId)
-        .eq("status", "in"),
+        .eq("session_id", sessionId),
       admin.from("profiles").select("name").eq("status", "active").order("name"),
     ]);
 

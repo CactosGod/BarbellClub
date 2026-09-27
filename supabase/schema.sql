@@ -71,10 +71,8 @@ create table sessions (
 create table signups (
   session_id bigint references sessions on delete cascade,
   profile_id uuid references profiles on delete cascade,
-  status text not null default 'in', -- in | out ("Nilkkatulehdus")
   created_at timestamptz default now(),
-  primary key (session_id, profile_id),
-  check (status in ('in', 'out'))
+  primary key (session_id, profile_id)
 );
 
 -- Enforce session capacity atomically. Locking the session row serializes
@@ -90,13 +88,7 @@ begin
   if cap is null then
     return new;
   end if;
-  if new.status is distinct from 'in' then
-    return new;
-  end if;
-  select count(*) into taken from signups
-    where session_id = new.session_id
-      and status = 'in'
-      and profile_id is distinct from new.profile_id;
+  select count(*) into taken from signups where session_id = new.session_id;
   if taken >= cap then
     raise exception 'Session is full' using errcode = 'P0001';
   end if;
@@ -104,7 +96,7 @@ begin
 end;
 $$;
 
-create trigger trg_enforce_capacity before insert or update on signups
+create trigger trg_enforce_capacity before insert on signups
   for each row execute function public.enforce_session_capacity();
 
 create table results (

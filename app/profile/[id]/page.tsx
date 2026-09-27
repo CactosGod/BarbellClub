@@ -119,8 +119,7 @@ export default async function ProfilePage({
     supabase
       .from("signups")
       .select("profile_id, session_id, sessions!inner(date)")
-      .eq("profile_id", id)
-      .eq("status", "in"),
+      .eq("profile_id", id),
     supabase
       .from("sessions")
       .select("id, date")

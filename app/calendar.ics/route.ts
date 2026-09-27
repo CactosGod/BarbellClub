@@ -5,6 +5,7 @@ import { clubLocalToIso, clubToday, isWodHidden } from "@/lib/schedule";
 export const dynamic = "force-dynamic";
 
 const MINUTES = 90;
+const LOCATION = "East Breeze CrossFit, Linnavuorentie 28, 00950 Helsinki";
 
 type FeedSession = {
   id: number;
@@ -99,7 +100,8 @@ function renderEvent(s: FeedSession, origin: string, stamp: string): string {
     `DTSTAMP:${stamp}`,
     `DTSTART:${icsUtc(start)}`,
     `DTEND:${icsUtc(end)}`,
-    fold(`SUMMARY:${icsText(s.title)}`),
+    fold(`SUMMARY:${icsText(`Barbell Club: ${s.title}`)}`),
+    fold(`LOCATION:${icsText(LOCATION)}`),
     fold(`DESCRIPTION:${icsText(description.join("\n"))}`),
     fold(`URL:${url}`),
     "END:VEVENT",

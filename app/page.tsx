@@ -141,8 +141,10 @@ async function feedOrigin(): Promise<string> {
   return `${proto}://${host}`;
 }
 
+// Google's cid parameter rejects a plain https feed ("Unable to add calendar")
+// but accepts the same address as webcal://.
 function googleCalendarHref(origin: string): string {
-  const feed = `${origin}/calendar.ics`;
+  const feed = `${origin.replace(/^https?:\/\//, "webcal://")}/calendar.ics`;
   return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feed)}`;
 }
 

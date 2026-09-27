@@ -24,6 +24,74 @@ export type AttendanceRate = {
   percent: number | null; // null when eligible === 0
 };
 
+export type HalfWindow = {
+  label: string; // "H2 2026"
+  start: string; // YYYY-MM-DD inclusive
+  end: string;
+};
+
+/** Calendar half containing `todayYmd`: H1 is Jan–Jun, H2 is Jul–Dec. */
+export function currentHalf(todayYmd: string): HalfWindow {
+  const year = todayYmd.slice(0, 4);
+  const month = Number(todayYmd.slice(5, 7));
+  if (month >= 7) {
+    return { label: `H2 ${year}`, start: `${year}-07-01`, end: `${year}-12-31` };
+  }
+  return { label: `H1 ${year}`, start: `${year}-01-01`, end: `${year}-06-30` };
+}
+
+export type AttendanceRank = {
+  profileId: string;
+  name: string;
+  photoUrl: string | null;
+  count: number;
+  place: number;
+  tied: boolean;
+};
+
+/**
+ * Competition ranking of distinct sessions in [start, end].
+ * Ties share a place (shown as T) and break alphabetically by name.
+ */
+export function rankAttendance(
+  events: AttendanceEvent[],
+  profiles: { id: string; name: string; photo_url: string | null }[],
+  start: string,
+  end: string,
+): AttendanceRank[] {
+  const counts = new Map<string, Set<number>>();
+  for (const e of events) {
+    if (!e.profile_id || e.date < start || e.date > end) continue;
+    let set = counts.get(e.profile_id);
+    if (!set) {
+      set = new Set();
+      counts.set(e.profile_id, set);
+    }
+    set.add(e.session_id);
+  }
+
+  const rows = profiles
+    .map((p) => ({
+      profileId: p.id,
+      name: p.name,
+      photoUrl: p.photo_url,
+      count: counts.get(p.id)?.size ?? 0,
+    }))
+    .filter((r) => r.count > 0)
+    .sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name, "en"),
+    );
+
+  const freq = new Map<number, number>();
+  for (const r of rows) freq.set(r.count, (freq.get(r.count) ?? 0) + 1);
+
+  let place = 1;
+  return rows.map((r, i) => {
+    if (i > 0 && rows[i - 1].count !== r.count) place = i + 1;
+    return { ...r, place, tied: (freq.get(r.count) ?? 0) > 1 };
+  });
+}
+
 /** "YYYY-MM" from a calendar date. */
 export function monthKey(ymd: string): string {
   return ymd.slice(0, 7);

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Header from "@/components/Header";
+import AttendanceBoard from "@/components/AttendanceBoard";
 import AttendanceTimeline from "@/components/AttendanceTimeline";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -7,8 +8,10 @@ import { lowerIsBetter } from "@/lib/pb";
 import { clubToday } from "@/lib/schedule";
 import {
   buildMonthlyAttendance,
+  currentHalf,
   monthKey,
   monthKeysInclusive,
+  rankAttendance,
   rolling12Start,
   unionAttendance,
   type AttendanceEvent,
@@ -117,7 +120,10 @@ export default async function LeaderboardPage({
       .select("profile_id, session_id, sessions!inner(date)")
       .gte("sessions.date", rangeStart)
       .lte("sessions.date", today),
-    supabase.from("profiles").select("id, name").eq("status", "active"),
+    supabase
+      .from("profiles")
+      .select("id, name, photo_url")
+      .eq("status", "active"),
   ]);
 
   const movements = (movementRows ?? []) as Movement[];
@@ -160,12 +166,14 @@ export default async function LeaderboardPage({
     .filter((x): x is AttendanceEvent => x != null);
 
   const events = unionAttendance(fromResults, fromSignups);
-  const names = new Map(
-    ((profileRows ?? []) as { id: string; name: string }[]).map((p) => [
-      p.id,
-      p.name,
-    ]),
-  );
+  const profiles = (profileRows ?? []) as {
+    id: string;
+    name: string;
+    photo_url: string | null;
+  }[];
+  const names = new Map(profiles.map((p) => [p.id, p.name]));
+  const half = currentHalf(today);
+  const attendanceRanks = rankAttendance(events, profiles, half.start, today);
 
   // Month axis: from earliest data/month in range through current month.
   let startMonth = monthKey(rangeStart);
@@ -213,6 +221,8 @@ export default async function LeaderboardPage({
       <Header profile={me} />
       <main className="mx-auto max-w-3xl px-4 py-6">
         <h1 className="heading text-3xl">Leaderboard</h1>
+
+        <AttendanceBoard half={half} ranks={attendanceRanks} />
 
         <section className="mt-6 rounded-lg border border-charcoal-700 bg-charcoal-800 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">

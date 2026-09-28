@@ -45,6 +45,7 @@ export interface SessionTemplate {
 export interface Signup {
   session_id: number;
   profile_id: string;
+  status: "in" | "out";
   created_at: string;
 }
 
@@ -54,6 +55,8 @@ export interface Signup {
 export interface SessionWithMeta extends Session {
   signup_count: number;
   is_signed_up: boolean;
+  /** Viewer RSVP'd out ("Nilkkatulehdus") when fetched. */
+  is_out?: boolean;
   is_full: boolean;
   wod_hidden: boolean;
   /** Viewer has a logged result for this session (when fetched). */

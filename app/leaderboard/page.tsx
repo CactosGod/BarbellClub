@@ -118,6 +118,7 @@ export default async function LeaderboardPage({
     supabase
       .from("signups")
       .select("profile_id, session_id, sessions!inner(date)")
+      .eq("status", "in")
       .gte("sessions.date", rangeStart)
       .lte("sessions.date", today),
     supabase

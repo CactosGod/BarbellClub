@@ -9,9 +9,9 @@ import type { ScoreType } from "@/lib/types";
 
 export type SignupState = { error: string | null };
 
-// Member joins or leaves a session. Writes go through the RLS-bound user client:
-// `signups_own_write` restricts rows to the caller, and the capacity trigger
-// rejects a join when the session is full. Returns an error string for the UI.
+// Member sets an RSVP. "in" takes a spot; "out" (Nilkkatulehdus) does not.
+// Tapping the active choice clears the row. Writes go through the RLS-bound
+// user client. The capacity trigger rejects an "in" when the session is full.
 export async function toggleSignup(
   _prev: SignupState,
   formData: FormData,
@@ -19,6 +19,9 @@ export async function toggleSignup(
   const sessionId = Number(formData.get("session_id"));
   const intent = String(formData.get("intent") ?? "");
   if (!Number.isInteger(sessionId)) return { error: "Invalid session." };
+  if (intent !== "join" && intent !== "out" && intent !== "leave") {
+    return { error: "Invalid RSVP." };
+  }
 
   const supabase = await createClient();
   const {
@@ -33,17 +36,30 @@ export async function toggleSignup(
       .eq("session_id", sessionId)
       .eq("profile_id", user.id);
   } else {
-    const { error } = await supabase
+    const status = intent === "out" ? "out" : "in";
+    const { data: existing } = await supabase
       .from("signups")
-      .insert({ session_id: sessionId, profile_id: user.id });
-    // 23505 = already signed up: idempotent, treat as success. P0001 = capacity
-    // trigger fired. Anything else is an unexpected failure.
+      .select("status")
+      .eq("session_id", sessionId)
+      .eq("profile_id", user.id)
+      .maybeSingle();
+
+    const { error } = existing
+      ? await supabase
+          .from("signups")
+          .update({ status })
+          .eq("session_id", sessionId)
+          .eq("profile_id", user.id)
+      : await supabase
+          .from("signups")
+          .insert({ session_id: sessionId, profile_id: user.id, status });
+    // 23505 = already has a row: treat as success. P0001 = capacity trigger.
     if (error && error.code !== "23505") {
       return {
         error:
           error.code === "P0001"
             ? "This session is full."
-            : "Couldn't sign up — please try again.",
+            : "Couldn't update your RSVP — please try again.",
       };
     }
   }
